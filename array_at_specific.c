@@ -14,11 +14,14 @@ int main(){
     }
 
     printf("\nValues Inserted.... !\n");
-
+    printf("\nArray Before insertion - \n");
+    for(int i = 0; i < size; i++){
+        (i < size - 1) ? printf("%d, ",arr[i]) : printf("%d",arr[i]) ;
+    }
     
 
     int choice;
-    printf("if you want to insert value at specific position then, \n");
+    printf("\nif you want to insert value at specific position then, \n");
     printf("Enter - 0\n");
     printf("if not - 1\n");
     scanf("%d",&choice);
