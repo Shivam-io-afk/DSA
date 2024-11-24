@@ -4,13 +4,75 @@
 
 
 void atSpecific();
+void atBeginning();
+void atEnd();
 
 int main(){
-    
-    atSpecific();
+    int choice;
 
+    printf("Deletion from - \n");
+    printf("1> for starting - \n");
+    printf("2> for specific position - \n");
+    printf("3> for end - \n => ");
+
+    scanf("%d",&choice);
+    switch(choice){
+        case 1:
+            atBeginning();
+            break;
+        case 2:
+            atSpecific();
+            break;
+        case 3:
+            atEnd();
+            break;
+        default:
+            printf("Invalid Output");
+            exit(0);
+    }
     return 0;
 }
+
+
+
+void atBeginning(){
+    int arr[50];
+    int num, size;
+
+    printf("Enter the size of an array - \n");
+    scanf("%d",&size);
+
+    for(int i = 0; i < size; i++){
+            printf("Enter element %d at - ",i);
+            scanf("%d",&arr[i]);
+    }
+
+    printf("\nValues Inserted.... !\n");
+    printf("\nArray Before Deletion - \n");
+    for(int i = 0; i < size; i++){
+        (i < size - 1) ? printf("%d, ",arr[i]) : printf("%d",arr[i]) ;
+    }
+    
+
+
+    int vals;
+
+        vals = arr[0];
+        for(int j = 0; j < size - 1; j++){
+                arr[j] = arr[j+1];
+        }
+
+        size--;
+
+        printf("\nArray after Deletion from beginning - \n");
+        for(int i = 0; i < size; i++){
+            (i < size - 1) ? printf("%d, ",arr[i]) : printf("%d",arr[i]) ;
+        }
+        printf("\n%d is Deleted",vals);
+    
+}
+
+
 
 
 
@@ -70,7 +132,53 @@ void atSpecific(){
         for(int i = 0; i < size; i++){
             (i < size - 1) ? printf("%d, ",arr[i]) : printf("%d",arr[i]) ;
         }
-        printf("\n%d Deleted",vals);
+        printf("\n%d is Deleted",vals);
     }
 
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void atEnd(){
+    int arr[50];
+    int size;
+
+    
+    printf("Enter the size of an array - \n");
+    scanf("%d",&size);
+
+    for(int i = 0; i < size; i++){
+            printf("Enter element %d at - ",i);
+            scanf("%d",&arr[i]);
+    }
+
+    printf("\nValues Inserted.... !\n");
+    printf("\nArray Before Deletion - \n");
+    for(int i = 0; i < size; i++){
+        (i < size - 1) ? printf("%d, ",arr[i]) : printf("%d",arr[i]) ;
+    }
+    
+
+
+    int vals;
+
+        vals = arr[size - 1];
+        size--;
+
+        printf("\nArray after Deletion from ending - \n");
+        for(int i = 0; i < size; i++){
+            (i < size - 1) ? printf("%d, ",arr[i]) : printf("%d",arr[i]) ;
+        }
+        printf("\n%d is Deleted",vals);
 }
