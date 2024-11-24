@@ -1,7 +1,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+
+
+void atSpecific();
+
 int main(){
+    
+    atSpecific();
+
+    return 0;
+}
+
+
+
+void atSpecific(){
     int arr[50];
     int num,pos,size;
 
@@ -60,8 +73,4 @@ int main(){
         printf("\n%d Deleted",vals);
     }
 
-
-
-
-    return 0;
 }
