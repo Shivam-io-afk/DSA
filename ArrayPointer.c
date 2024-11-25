@@ -1,6 +1,15 @@
 #include <stdio.h>
 
+
+void printingPointer();
 int main(){
+    printingPointer();
+    return 0;
+}
+
+
+ 
+void printingPointer(){
     int arr[50];
     int *p;
     p = arr;
@@ -22,3 +31,7 @@ int main(){
         printf("%d ",i[p]);
     }
 }
+
+
+
+
