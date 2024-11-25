@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-// Pointers to Array -----------> 
+// Pointers to Array in 1D -----------> 
 
 void printingPointer();
 int main(){
