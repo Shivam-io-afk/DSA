@@ -1,5 +1,6 @@
 #include <stdio.h>
 
+// Pointers to Array -----------> 
 
 void printingPointer();
 int main(){
@@ -8,7 +9,7 @@ int main(){
 }
 
 
- 
+// some basics with 1D array ->
 void printingPointer(){
     int arr[50];
     int *p;
