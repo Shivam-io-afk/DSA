@@ -71,7 +71,6 @@ int main(){
             case 2:
                 printf("List - \n");
                 printList(head);
-                break;
             default:
                 exit(0);
         }

@@ -42,6 +42,7 @@ int main() {
         printf("\nEnter what you want to do -> \n");
         printf("1> To insert \n");
         printf("2> To Display \n");
+        printf("3> To Exit \n");
 
         scanf("%d",&choice);
         switch(choice){
@@ -55,6 +56,8 @@ int main() {
                 printf("List - \n");
                 printList(head);
                 break;
+            case 3:
+                exit(0);
             default:
                 exit(0);
         }
