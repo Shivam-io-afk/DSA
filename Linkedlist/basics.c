@@ -18,11 +18,15 @@ struct node* createNode(int data) {
     return newNode;
 }
 
+
+
 void insertAtbeg(struct node** head, int data) {
     struct node* newNode = createNode(data);
     newNode->next = *head;
     *head = newNode;
 }
+
+
 
 void printList(struct node* head) {
     struct node* temp = head;
@@ -32,6 +36,7 @@ void printList(struct node* head) {
     }
     printf("NULL\n");
 }
+
 
 int main() {
     struct node* head = NULL;
