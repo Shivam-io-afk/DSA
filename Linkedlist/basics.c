@@ -20,6 +20,7 @@ struct node* createNode(int data) {
 
 
 
+
 void insertAtbeg(struct node** head, int data) {
     struct node* newNode = createNode(data);
     newNode->next = *head;
