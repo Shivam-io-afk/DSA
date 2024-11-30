@@ -8,6 +8,14 @@ struct node{
     struct node* next;
 };
 
+
+void traversalLinkedlist(struct node* ptr){
+    while(ptr != NULL){
+        printf("%d ",ptr->data);
+        ptr = ptr->next;
+    }
+}
+
 int main(){
     struct node * head;
     struct node * first;
@@ -26,5 +34,6 @@ int main(){
 
     sec->data = 19;
     sec->next = NULL;
-    
+
+    traversalLinkedlist(head);    
 }
