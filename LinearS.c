@@ -24,6 +24,7 @@ int main(){
     int value;
     printf("\nEnter element you want to search - \n");
     scanf("%d",&value);
+    
 
     printf("Searching... !\n");
     Sleep(2000);
