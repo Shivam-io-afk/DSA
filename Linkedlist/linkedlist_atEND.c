@@ -22,7 +22,7 @@ struct node* createNode(int data){
     return newNode;
 } 
 
-
+    
 
 void insertAtEND(struct node** head,int data){
     struct node* newNode = createNode(data);
