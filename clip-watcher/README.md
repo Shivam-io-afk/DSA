@@ -1,0 +1,42 @@
+# clip-watcher
+
+Records a live Twitch stream and automatically cuts vertical clips whenever chat spikes.
+
+```
+./watch.sh <twitch_channel>
+```
+
+1. `streamlink` records the live stream to `rec/`.
+2. Chat is read anonymously over IRC (no token needed).
+3. Messages are counted in 10 s buckets; a spike is a bucket with at least 2.5x the
+   median of the last 3 minutes **and** at least `--min` messages.
+4. For each spike, `ffmpeg` cuts 20 s before + 10 s after into `clips/`, center-cropped to 9:16.
+5. Whisper writes an `.srt` next to each clip.
+
+## Install
+
+```
+# ffmpeg from your package manager, then:
+pip install streamlink openai-whisper
+```
+
+## Options
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--min N` | 10 | minimum messages per 10 s bucket (quiet chats: `--min 5`) |
+| `--factor X` | 2.5 | spike threshold as a multiple of the median |
+| `--before S` / `--after S` | 20 / 10 | seconds kept around the spike |
+| `--offset S` | 0 | shift all clips if they land early (+) or late (-) |
+| `--quality Q` | best | streamlink quality, e.g. `720p60` |
+| `--model M` | base | whisper model (`tiny`, `small`, ...) |
+| `--no-srt` | | skip subtitles |
+
+Stop with Ctrl-C; clips already queued are finished first.
+
+## Notes
+
+- It only works while the channel is live.
+- Spikes need about a minute of chat history before they can fire.
+- Spikes closer together than one clip length are merged into the first clip.
+- Only clip streamers who allow it.
