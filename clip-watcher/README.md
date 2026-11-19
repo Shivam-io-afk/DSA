@@ -7,6 +7,8 @@ Records a live Twitch or YouTube stream and automatically cuts vertical clips wh
 ./watch.sh "https://www.youtube.com/watch?v=VIDEO_ID"    # or https://www.youtube.com/@handle
 ```
 
+On Windows (PowerShell or cmd) use `.\watch.bat` instead of `./watch.sh`, with the same arguments.
+
 **Finished YouTube streams** work too: give the video URL of a past live stream and it
 downloads the saved chat replay, finds the spikes, and downloads only those parts of the
 video (needs `pip install yt-dlp`).
