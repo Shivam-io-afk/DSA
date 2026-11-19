@@ -7,6 +7,10 @@ Records a live Twitch or YouTube stream and automatically cuts vertical clips wh
 ./watch.sh "https://www.youtube.com/watch?v=VIDEO_ID"    # or https://www.youtube.com/@handle
 ```
 
+**Finished YouTube streams** work too: give the video URL of a past live stream and it
+downloads the saved chat replay, finds the spikes, and downloads only those parts of the
+video (needs `pip install yt-dlp`).
+
 1. `streamlink` records the live stream to `rec/`.
 2. Chat is read anonymously: Twitch over IRC, YouTube via the web live-chat endpoint
    (no token or API key needed).
@@ -19,7 +23,7 @@ Records a live Twitch or YouTube stream and automatically cuts vertical clips wh
 
 ```
 # ffmpeg from your package manager, then:
-pip install streamlink openai-whisper
+pip install streamlink openai-whisper yt-dlp
 ```
 
 ## Options
@@ -33,6 +37,8 @@ pip install streamlink openai-whisper
 | `--quality Q` | best | streamlink quality, e.g. `720p60` |
 | `--model M` | base | whisper model (`tiny`, `small`, ...) |
 | `--no-srt` | | skip subtitles |
+| `--max-height N` | 1080 | YouTube replay: highest video resolution to download |
+| `--cookies-from-browser B` | | YouTube replay: use your browser's YouTube login (`chrome`, `firefox`, ...) if YouTube says "confirm you're not a bot" |
 
 Stop with Ctrl-C; clips already queued are finished first.
 
@@ -40,7 +46,8 @@ Stop with Ctrl-C; clips already queued are finished first.
 
 - YouTube streams usually run further behind real time than Twitch; if clips start too
   late or early, tune `--offset`.
-- It only works while the channel is live.
+- Twitch only works while the channel is live; YouTube also works on finished streams
+  that kept their chat replay.
 - Spikes need about a minute of chat history before they can fire.
 - Spikes closer together than one clip length are merged into the first clip.
 - Only clip streamers who allow it.

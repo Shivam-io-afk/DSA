@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""clip-watcher: record a live Twitch/YouTube stream and auto-clip chat spikes.
+"""clip-watcher: record a live Twitch/YouTube stream (or replay a finished YouTube
+stream) and auto-clip chat spikes.
 
 Pipeline: streamlink -> rec/*.ts, anonymous IRC chat -> 10 s buckets ->
 spike detection -> ffmpeg 9:16 clip -> whisper .srt
@@ -208,9 +209,88 @@ def clip_worker(jobs, rec, rec_start, args, stop):
                 transcribe(out, args.model)
 
 
+def ytdlp(args, *extra):
+    cmd = ["yt-dlp", "--no-warnings", "--no-progress"]
+    if args.cookies_from_browser:
+        cmd += ["--cookies-from-browser", args.cookies_from_browser]
+    return cmd + list(extra)
+
+
+def replay_chat_offsets(chat_file):
+    """Seconds into the video of every chat message in a yt-dlp live_chat.json
+    (one JSON object per line)."""
+    offsets = []
+    with open(chat_file, encoding="utf-8") as f:
+        for line in f:
+            try:
+                rep = json.loads(line)["replayChatItemAction"]
+                t = int(rep["videoOffsetTimeMsec"]) / 1000
+            except (ValueError, KeyError):
+                continue
+            for item in _find(rep.get("actions", []), "addChatItemAction"):
+                if any(k in item.get("item", {}) for k in
+                       ("liveChatTextMessageRenderer", "liveChatPaidMessageRenderer")):
+                    offsets.append(t)
+    return sorted(offsets)
+
+
+def find_spikes(offsets, args):
+    """Run the live spike rule over replayed chat; returns spike times (s)."""
+    if not offsets:
+        return []
+    counts = [0] * (int(offsets[-1] // BUCKET) + 1)
+    for t in offsets:
+        counts[int(t // BUCKET)] += 1
+    det, spikes, last = SpikeDetector(args.factor, args.min_msgs), [], -1e9
+    for i, c in enumerate(counts):
+        spike, median = det.add(c)
+        t = i * BUCKET
+        if spike and t - last >= args.before + args.after:
+            log(f"SPIKE at {t // 3600:.0f}:{t % 3600 // 60:02.0f}:{t % 60:02.0f}: "
+                f"{c} msgs/10s (median {median:g})")
+            spikes.append(t)
+            last = t
+    return spikes
+
+
+def run_replay(video_id, args):
+    """Clip a finished YouTube stream from its saved chat replay."""
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    chat_file = Path("rec") / f"{video_id}.live_chat.json"
+    if not chat_file.exists():
+        log("downloading chat replay (can take a few minutes for long streams)...")
+        subprocess.run(ytdlp(args, "--skip-download", "--write-subs", "--sub-langs", "live_chat",
+                             "-o", str(Path("rec") / f"{video_id}.%(ext)s"), url))
+    if not chat_file.exists():
+        sys.exit("no chat replay found - YouTube only keeps it for videos that were live streams with chat on")
+    offsets = replay_chat_offsets(chat_file)
+    log(f"chat: {len(offsets)} messages over {offsets[-1] / 60:.0f} min" if offsets else "chat: no messages")
+    spikes = find_spikes(offsets, args)
+    log(f"{len(spikes)} spike(s)")
+    for t in spikes:
+        start = max(0.0, t + args.offset - args.before)
+        end = t + args.offset + args.after
+        stamp = f"{int(start) // 3600:02d}h{int(start) % 3600 // 60:02d}m{int(start) % 60:02d}s"
+        part = Path("rec") / f"{video_id}_{stamp}.mp4"
+        if not part.exists():   # only the clip's range is downloaded, not the whole video
+            subprocess.run(ytdlp(args, "-f", f"bv*[height<={args.max_height}]+ba/b",
+                                 "--download-sections", f"*{start:.0f}-{end:.0f}",
+                                 "--force-keyframes-at-cuts", "--merge-output-format", "mp4",
+                                 "-o", str(part), url))
+        if not part.exists():
+            log(f"download failed for {stamp}")
+            continue
+        out = Path("clips") / part.name
+        if cut_clip(part, 0, end - start, out):
+            log(f"clip: {out}")
+            if not args.no_srt:
+                transcribe(out, args.model)
+
+
 def main():
     p = argparse.ArgumentParser(description="Record a Twitch or YouTube live stream and clip chat spikes.")
-    p.add_argument("channel", help="Twitch channel name, or a YouTube live/channel URL")
+    p.add_argument("channel", help="Twitch channel name, or a YouTube live/channel/video URL "
+                                   "(a finished stream is clipped from its chat replay)")
     p.add_argument("--min", type=int, default=10, dest="min_msgs",
                    help="minimum messages in a 10 s bucket to count as a spike (default 10; quiet chats: 5)")
     p.add_argument("--factor", type=float, default=2.5, help="spike = factor x median (default 2.5)")
@@ -221,8 +301,33 @@ def main():
     p.add_argument("--quality", default="best", help="streamlink quality (default best)")
     p.add_argument("--model", default="base", help="whisper model (default base)")
     p.add_argument("--no-srt", action="store_true", help="skip whisper subtitles")
+    p.add_argument("--max-height", type=int, default=1080, help="YouTube replay: max video height (default 1080)")
+    p.add_argument("--cookies-from-browser", metavar="BROWSER",
+                   help="YouTube replay: pass your browser's YouTube login to yt-dlp, e.g. chrome or firefox, "
+                        "if YouTube asks to confirm you're not a bot")
     args = p.parse_args()
     youtube = bool(re.search(r"youtube\.com|youtu\.be", args.channel))
+
+    # A YouTube URL naming a video that is no longer live -> replay mode
+    vid = re.search(r"(?:[?&]v=|youtu\.be/|/live/|/shorts/|/embed/)([\w-]{11})", args.channel)
+    if youtube and vid:
+        if not shutil.which("yt-dlp"):
+            sys.exit("missing: yt-dlp  ->  pip install yt-dlp")
+        r = subprocess.run(ytdlp(args, "--skip-download", "--print", "live_status",
+                                 f"https://www.youtube.com/watch?v={vid.group(1)}"),
+                           capture_output=True, text=True)
+        status = r.stdout.strip()
+        if not status:
+            sys.exit(f"yt-dlp could not read the video:\n{r.stderr.strip()[-500:]}")
+        if status != "is_live":
+            needed = ["ffmpeg"] + ([] if args.no_srt else ["whisper"])
+            missing = [t for t in needed if not shutil.which(t)]
+            if missing:
+                sys.exit(f"missing: {', '.join(missing)}  ->  install ffmpeg, then: pip install openai-whisper")
+            Path("rec").mkdir(exist_ok=True)
+            Path("clips").mkdir(exist_ok=True)
+            log(f"{vid.group(1)} is not live ({status}) -> clipping from chat replay")
+            return run_replay(vid.group(1), args)
 
     needed = ["ffmpeg", "streamlink"] + ([] if args.no_srt else ["whisper"])
     missing = [t for t in needed if not shutil.which(t)]
