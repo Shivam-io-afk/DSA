@@ -6,6 +6,7 @@ Pipeline: streamlink -> rec/*.ts, anonymous IRC chat -> 10 s buckets ->
 spike detection -> ffmpeg 9:16 clip -> whisper .srt
 """
 import argparse
+import importlib.util
 import json
 import queue
 import re
@@ -25,6 +26,21 @@ BUCKET = 10          # seconds per bucket
 WINDOW = 180         # seconds of history the median is taken over
 WARMUP = 6           # buckets of history required before spikes can fire
 FLUSH_MARGIN = 8     # extra seconds to let the recording catch up before cutting
+
+
+# Python tools may be installed where the shell can't find them (e.g. pip's
+# user Scripts folder on Windows), so fall back to running them as modules.
+PY_MODULES = {"yt-dlp": "yt_dlp", "whisper": "whisper", "streamlink": "streamlink_cli"}
+
+
+def tool(name):
+    """Command list that runs `name`, or None if it isn't installed."""
+    if shutil.which(name):
+        return [name]
+    mod = PY_MODULES.get(name)
+    if mod and importlib.util.find_spec(mod):
+        return [sys.executable, "-m", mod]
+    return None
 
 
 def log(msg):
@@ -178,7 +194,7 @@ def cut_clip(rec, start, duration, out):
 
 
 def transcribe(clip, model):
-    r = subprocess.run(["whisper", str(clip), "--model", model,
+    r = subprocess.run(tool("whisper") + [str(clip), "--model", model,
                         "--output_format", "srt", "--output_dir", str(clip.parent),
                         "--verbose", "False"], capture_output=True, text=True)
     srt = clip.with_suffix(".srt")
@@ -210,7 +226,7 @@ def clip_worker(jobs, rec, rec_start, args, stop):
 
 
 def ytdlp(args, *extra):
-    cmd = ["yt-dlp", "--no-warnings", "--no-progress"]
+    cmd = tool("yt-dlp") + ["--no-warnings", "--no-progress"]
     if args.cookies_from_browser:
         cmd += ["--cookies-from-browser", args.cookies_from_browser]
     return cmd + list(extra)
@@ -311,7 +327,7 @@ def main():
     # A YouTube URL naming a video that is no longer live -> replay mode
     vid = re.search(r"(?:[?&]v=|youtu\.be/|/live/|/shorts/|/embed/)([\w-]{11})", args.channel)
     if youtube and vid:
-        if not shutil.which("yt-dlp"):
+        if not tool("yt-dlp"):
             sys.exit("missing: yt-dlp  ->  pip install yt-dlp")
         r = subprocess.run(ytdlp(args, "--skip-download", "--print", "live_status",
                                  f"https://www.youtube.com/watch?v={vid.group(1)}"),
@@ -321,7 +337,7 @@ def main():
             sys.exit(f"yt-dlp could not read the video:\n{r.stderr.strip()[-500:]}")
         if status != "is_live":
             needed = ["ffmpeg"] + ([] if args.no_srt else ["whisper"])
-            missing = [t for t in needed if not shutil.which(t)]
+            missing = [t for t in needed if not tool(t)]
             if missing:
                 sys.exit(f"missing: {', '.join(missing)}  ->  install ffmpeg, then: pip install openai-whisper")
             Path("rec").mkdir(exist_ok=True)
@@ -330,7 +346,7 @@ def main():
             return run_replay(vid.group(1), args)
 
     needed = ["ffmpeg", "streamlink"] + ([] if args.no_srt else ["whisper"])
-    missing = [t for t in needed if not shutil.which(t)]
+    missing = [t for t in needed if not tool(t)]
     if missing:
         sys.exit(f"missing: {', '.join(missing)}  ->  install ffmpeg, then: pip install streamlink openai-whisper")
 
@@ -339,11 +355,11 @@ def main():
     if youtube:
         args.channel = youtube_video_id(args.channel)       # also names the files
         url, chat = f"https://www.youtube.com/watch?v={args.channel}", youtube_chat
-        sl_cmd = ["streamlink"]
+        sl_cmd = tool("streamlink")
     else:
         args.channel = args.channel.lower().lstrip("#").rsplit("/", 1)[-1]
         url, chat = f"https://twitch.tv/{args.channel}", twitch_chat
-        sl_cmd = ["streamlink", "--twitch-disable-ads"]
+        sl_cmd = tool("streamlink") + ["--twitch-disable-ads"]
     rec = Path("rec") / f"{args.channel}_{time.strftime('%Y%m%d_%H%M%S')}.ts"
 
     # 1) record the stream (.ts stays readable while it is still being written)
