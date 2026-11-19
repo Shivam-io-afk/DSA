@@ -126,7 +126,13 @@ def youtube_chat(video_id, stop):
             key = re.search(r'"INNERTUBE_API_KEY":"([^"]+)"', page).group(1)
             version = re.search(r'"clientVersion":"([^"]+)"', page).group(1)
             raw = re.search(r'ytInitialData"?\]?\s*=\s*(\{.*?\});\s*</script>', page, re.S).group(1)
-            chat = next(_find(json.loads(raw), "liveChatRenderer"))
+            data = json.loads(raw)
+            chat = next(_find(data, "liveChatRenderer"), None)
+            if chat is None:
+                # e.g. "Chat is disabled for this live stream." - retrying won't help
+                note = " ".join(run.get("text", "") for runs in _find(data, "runs")
+                                for run in runs) or "no live chat on this video"
+                sys.exit(f"YouTube: {note.strip()}")
             # prefer "Live chat" (every message) over the default "Top chat"
             reloads = [c["continuation"] for c in _find(chat.get("header", {}), "reloadContinuationData")]
             cont = reloads[-1] if reloads else next(_find(chat["continuations"], "continuation"))
